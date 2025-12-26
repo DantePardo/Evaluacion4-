@@ -154,105 +154,86 @@ class Auth:
 class Finance:
     def __init__(self, base_url: str = "https://mindicador.cl/api"):
         self.base_url = base_url
-    def get_indicator(self, indicator: str, fecha: str = None) -> float:
+
+    # ─────────────────────────────────────────────
+    # INDICADORES DIARIOS (UF, DÓLAR, EURO, IVP, UTM)
+    # ─────────────────────────────────────────────
+    def get_indicator(self, indicator: str, fecha: str = None) -> Optional[float]:
         try:
-            if not fecha:
-                fecha = datetime.datetime.now().strftime("%Y-%m-%d")
-            url_with_date = f"{self.base_url}/{indicator}/{fecha}"
-            try:
-                respuesta = requests.get(url_with_date, timeout=10)
-                respuesta.raise_for_status()
-                data = respuesta.json()
-
-                serie = data.get("serie")
-                if serie and len(serie) > 0:
-                    return serie[0].get("valor")
-
-                return None
-            except Exception:
-                pass
-
-            url = f"{self.base_url}/{indicator}"
-            try:
-                respuesta2 = requests.get(url, timeout=10)
-                respuesta2.raise_for_status()
-                data2 = respuesta2.json()
-                serie2 = data2.get("serie") or []
-                if serie2:
-                    return serie2[0].get("valor")
-                print(f"Sin datos en serie para {indicator} (último disponible)")
-                return None
-            except Exception as e2:
-                print(f"Hubo un error con la solicitud (sin fecha) para {indicator}: {e2}")
-                return None
-        except Exception as e:
-            print(f"Error inesperado obteniendo {indicator}: {e}")
-            return None
-
-    def get_currency_rate(self, currency: str, fecha: str = None) -> Optional[float]:
-        """Obtiene tasa de `currency` a CLP usando exchangerate.host. Mantiene la misma interfaz."""
-        try:
-            params = {"from": currency, "to": "CLP"}
+            # Intentar con fecha
             if fecha:
-                params["date"] = fecha
-            url = "https://api.exchangerate.host/convert"
-            resp = requests.get(url, params=params, timeout=10)
-            resp.raise_for_status()
-            j = resp.json()
-            result = j.get("result")
-            if result is None:
-                print(f"No se obtuvo tasa para {currency} en {fecha or 'hoy'}")
-                return None
-            print(f"El valor de {currency} en CLP es: {result}")
-            return result
-        except Exception as e:
-            print(f"Error obteniendo tasa de {currency}: {e}")
-            return None
-    def get_chilean_indicator(self, indicator: str, fecha: str = None) -> Optional[float]:
-        """Intenta obtener indicador desde Banco Central (si está configurado) y luego mindicador como fallback.
+                url = f"{self.base_url}/{indicator}/{fecha}"
+                resp = requests.get(url, timeout=10)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    serie = data.get("serie") or []
+                    if serie:
+                        return serie[0].get("valor")
 
-        - Si la variable de entorno `BC_BASE_URL` está definida intentará una petición a esa URL
-          con la forma: {BC_BASE_URL}/{indicator}?date=YYYY-MM-DD
-        - Si no existe `BC_BASE_URL` o la respuesta no contiene datos esperados,
-          usará la lógica de `get_indicator` (mindicador con fallback fecha/no-fecha).
+            # Fallback: sin fecha (último disponible)
+            url = f"{self.base_url}/{indicator}"
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+
+            serie = data.get("serie") or []
+            if not serie:
+                print(f"⚠️ Sin datos para {indicator}")
+                return None
+
+            return serie[0].get("valor")
+
+        except Exception as e:
+            print(f"❌ Error obteniendo {indicator}: {e}")
+            return None
+
+    # ─────────────────────────────────────────────
+    # INDICADOR MENSUAL (IPC)
+    # ─────────────────────────────────────────────
+    def get_ipc(self, fecha: str = None) -> Optional[float]:
+        """
+        IPC es mensual:
+        - Sin fecha → último IPC
+        - Con fecha → YYYY-MM
         """
         try:
-            fecha_param = fecha if fecha else None
-            bc_base = os.getenv("BC_BASE_URL")
-            if bc_base:
-                try:
-                    params = {}
-                    if fecha_param:
-                        params["date"] = fecha_param
-                    resp = requests.get(f"{bc_base.rstrip('/')}/{indicator}", params=params, timeout=10)
-                    resp.raise_for_status()
-                    j = resp.json()
-                    if isinstance(j, dict) and j.get("serie"):
-                        s = j.get("serie") or []
-                        if s:
-                            return s[0].get("valor")
-                    if isinstance(j, dict):
-                        for k in ("valor", "value", "resultado"):
-                            if k in j and isinstance(j[k], (int, float)):
-                                return j[k]
-                        data_list = j.get("data") or j.get("datos") or []
-                        if isinstance(data_list, list) and data_list:
-                            first = data_list[0]
-                            if isinstance(first, dict):
-                                for k in ("valor", "value"):
-                                    if k in first:
-                                        return first.get(k)
-                except Exception:
-                    pass
+            if fecha:
+                # YYYY-MM-DD → YYYY-MM
+                fecha_mes = fecha[:7]
+                url = f"{self.base_url}/ipc/{fecha_mes}"
+            else:
+                url = f"{self.base_url}/ipc"
 
-            return self.get_indicator(indicator, fecha)
+            resp = requests.get(url, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+
+            serie = data.get("serie") or []
+            if not serie:
+                print(f"⚠️ IPC no publicado para {fecha or 'último mes'}")
+                return None
+
+            return serie[0].get("valor")
+
         except Exception as e:
-            print(f"Error obteniendo indicador chileno {indicator}: {e}")
+            print(f"❌ Error obteniendo IPC: {e}")
             return None
+
+    # ─────────────────────────────────────────────
+    # INDICADORES CHILENOS (ENVUELVEN get_indicator)
+    # ─────────────────────────────────────────────
+    def get_chilean_indicator(self, indicator: str, fecha: str = None) -> Optional[float]:
+        """
+        Usar SOLO para indicadores diarios.
+        NO usar para IPC.
+        """
+        return self.get_indicator(indicator, fecha)
+
     def get_usd(self, fecha: str = None):
         valor = self.get_chilean_indicator("dolar", fecha)
-        print(f"El valor del dolar en CLP es: {valor}")
+        print(f"El valor del dólar en CLP es: {valor}")
         return valor
+
     def get_eur(self, fecha: str = None):
         valor = self.get_chilean_indicator("euro", fecha)
         print(f"El valor del euro en CLP es: {valor}")
@@ -268,11 +249,6 @@ class Finance:
         print(f"El valor del IVP en CLP es: {valor}")
         return valor
 
-    def get_ipc(self, fecha: str = None):
-        valor = self.get_chilean_indicator("ipc", fecha)
-        print(f"El valor del IPC es: {valor}")
-        return valor
-
     def get_utm(self, fecha: str = None):
         valor = self.get_chilean_indicator("utm", fecha)
         print(f"El valor de la UTM es: {valor}")
@@ -281,13 +257,13 @@ class Finance:
 def _validate_date(date_str: Optional[str]) -> Optional[str]:
     if not date_str:
         return None
-    formats = ["%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y"]
-    for fmt in formats:
+
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d"):
         try:
-            dt = datetime.datetime.strptime(date_str, fmt)
-            return dt.strftime("%Y-%m-%d")
-        except Exception:
+            return datetime.datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+        except ValueError:
             continue
+
     return None
 
 
@@ -355,39 +331,36 @@ def indicators_menu(finance: Finance, db: Database, user_id: int):
         "5": ("IPC", finance.get_ipc),
         "6": ("UTM", finance.get_utm),
     }
+
     while True:
         print("\n-- Indicadores --")
         for k, v in options.items():
             print(f"{k}. {v[0]}")
         print("0. Volver")
+
         choice = input("Seleccione una opción: ").strip()
         if choice == "0":
             break
         if choice not in options:
             print("Opción inválida")
             continue
-        date_in = input("Fecha opcional (dd-mm-YYYY o yyyy-mm-dd, enter para hoy): ").strip()
-        if date_in == "":
-            date_arg = None
-        else:
-            valid = _validate_date(date_in)
-            if not valid:
-                print("Fecha inválida, use dd-mm-YYYY o yyyy-mm-dd")
-                continue
-            date_arg = valid
-        func = options[choice][1]
-        try:
-            value = func(date_arg)
-            if value is not None:
-                db.insert_indicator_history(
-                    indicator_name=options[choice][0].lower(),
-                    value=value,
-                    value_date=date_arg or datetime.datetime.now().strftime("%Y-%m-%d"),
-                    source="mindicador.cl",
-                    retrieved_by= user_id
-                )
-        except Exception as e:
-            print("Error al obtener indicador:", e)
+
+        date_in = input("Fecha (dd-mm-YYYY o enter para hoy): ").strip()
+        fecha = _validate_date(date_in) if date_in else None
+
+        nombre, func = options[choice]
+        valor = func(fecha)
+
+        if valor is not None:
+            print(f"✅ {nombre}: {valor}")
+            db.insert_indicator_history(
+                indicator_name=nombre.lower(),
+                value=valor,
+                value_date=fecha or datetime.datetime.now().strftime("%Y-%m-%d"),
+                source="mindicador.cl",
+                retrieved_by=user_id
+            )
+
 
 def show_history(db: Database, user_id: int):
     print("\n== Historial de indicadores consultados ==")

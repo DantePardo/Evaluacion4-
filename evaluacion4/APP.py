@@ -322,13 +322,14 @@ class App:
                 self.page.update()
                 return
 
+            indicator = self.dropdown.value
             date_str = self.date_input.value.strip()
 
-            # 📅 Convertir fecha a formato Oracle
+            # ───── Fecha solo para BD ─────
             if date_str:
                 try:
                     dt = datetime.datetime.strptime(date_str, "%d-%m-%Y")
-                    oracle_date = dt.strftime("%Y-%m-%d")  # ✅ FORMATO ORACLE
+                    oracle_date = dt.strftime("%Y-%m-%d")
                 except ValueError:
                     self.result_text.value = "Formato de fecha inválido (DD-MM-YYYY)"
                     self.page.update()
@@ -336,10 +337,12 @@ class App:
             else:
                 oracle_date = datetime.date.today().strftime("%Y-%m-%d")
 
-            value = self.finance.get_chilean_indicator(
-                self.dropdown.value,
-                date_str
-            )
+            # ───── Obtener indicador ─────
+            if indicator == "ipc":
+                # 🔥 IGNORA la fecha completamente
+                value = self.finance.get_ipc()
+            else:
+                value = self.finance.get_chilean_indicator(indicator, oracle_date)
 
             if value is None:
                 self.result_text.value = "No se pudo obtener el indicador"
@@ -348,9 +351,9 @@ class App:
 
             self.result_text.value = f"Valor: {value}"
 
-            # 💾 Guardar historial (FECHA YA CORRECTA)
+            # ───── Guardar historial ─────
             self.db.insert_indicator_history(
-                indicator_name=self.dropdown.value,
+                indicator_name=indicator,
                 value=value,
                 value_date=oracle_date,
                 source="mindicador.cl",
@@ -362,6 +365,8 @@ class App:
         except Exception as err:
             self.result_text.value = f"Error: {err}"
             self.page.update()
+
+
     
     # ================= HISTORIAL =================
     def page_history(self):
