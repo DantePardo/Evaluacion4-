@@ -9,6 +9,7 @@ load_dotenv()
 
 class App:
     def __init__(self, page: ft.Page):
+        
         self.page = page
         self.page.title = "Ecotech Solutions"
         self.page.theme_mode = ft.ThemeMode.LIGHT
@@ -33,23 +34,24 @@ class App:
         self.page_register()
         
 
-    def card(self, controls, width=400):
+    def card(self, controls, width=420):
         return ft.Container(
         content=ft.Column(
             controls,
-            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=15
+            spacing=18,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER
         ),
         width=width,
-        padding=25,
-        bgcolor=self.card_color,
-        border_radius=12,
+        padding=30,
+        bgcolor=ft.Colors.WHITE,
+        border_radius=16,
         shadow=ft.BoxShadow(
-            blur_radius=15,
+            blur_radius=25,
             color=ft.Colors.BLACK12,
-            offset=ft.Offset(0, 4)
+            offset=ft.Offset(0, 8)
         )
     )
+
     
     def primary_button(self, text, on_click):
         return ft.ElevatedButton(
@@ -57,8 +59,11 @@ class App:
             on_click=on_click,
             bgcolor=self.primary_color,
             color=ft.Colors.WHITE,
-            width=250,
-            height=45
+            width=280,
+            height=48,
+            style=ft.ButtonStyle(
+                shape=ft.RoundedRectangleBorder(radius=10)
+            )
         )
     
     def input(self, label, password=False):
@@ -71,20 +76,36 @@ class App:
         )  
     # ================= REGISTRO =================
     def page_register(self):
-        
         self.page.controls.clear()
 
         self.input_id = self.input("ID usuario (numérico)")
         self.input_username = self.input("Usuario")
         self.input_password = self.input("Contraseña", password=True)
 
-        self.text_status = ft.Text(color=ft.Colors.RED)
+        self.text_status = ft.Text(size=12)
 
         self.page.add(
-            ft.Column(
+        ft.Container(
+            expand=True,
+            alignment=ft.alignment.center,
+            content=ft.Column(
                 [
-                    ft.Text("Ecotech Solutions", size=28, weight="bold"),
-                    ft.Text("Registro de usuario", size=16),
+                    # TÍTULO
+                    ft.Text(
+                        "Ecotech Solutions",
+                        size=30,
+                        weight=ft.FontWeight.BOLD
+                    ),
+
+                    ft.Text(
+                        "Crea tu cuenta para continuar",
+                        size=14,
+                        color=ft.Colors.GREY_700
+                    ),
+
+                    ft.Container(height=20),
+
+                    # CARD
                     self.card([
                         self.input_id,
                         self.input_username,
@@ -97,10 +118,12 @@ class App:
                         )
                     ])
                 ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
             )
         )
+    )
+
+
     def handle_register(self, e):
         try:
             # Validaciones básicas
@@ -168,12 +191,24 @@ class App:
 
         self.input_username = self.input("Usuario")
         self.input_password = self.input("Contraseña", password=True)
-        self.text_status = ft.Text(color=ft.Colors.RED)
+        self.text_status = ft.Text(size=12)
 
         self.page.add(
-            ft.Column(
+        ft.Container(
+            expand=True,
+            alignment=ft.alignment.center,  # 🎯 CENTRADO REAL
+            content=ft.Column(
                 [
-                    ft.Text("Iniciar sesión", size=24, weight="bold"),
+                    # TÍTULO
+                    ft.Text(
+                        "Iniciar sesión",
+                        size=28,
+                        weight=ft.FontWeight.BOLD
+                    ),
+
+                    ft.Container(height=20),
+
+                    # CARD
                     self.card([
                         self.input_username,
                         self.input_password,
@@ -185,11 +220,10 @@ class App:
                         )
                     ])
                 ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER
             )
         )
-
+    )
         self.page.update()
 
     # ================= MENÚ PRINCIPAL =================
@@ -197,19 +231,40 @@ class App:
         self.page.controls.clear()
 
         self.page.add(
-            ft.Column(
-                [
-                    ft.Text(f"Bienvenido, {self.username}", size=24, weight="bold"),
-                    self.card([
-                        self.primary_button("Consultar indicador", lambda e: self.page_indicator()),
-                        self.primary_button("Ver historial", lambda e: self.page_history()),
-                        ft.OutlinedButton("Cerrar sesión", on_click=lambda e: self.page_login())
-                    ])
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER
+            ft.Container(
+                expand=True,
+                alignment=ft.alignment.center,
+                content=ft.Column(
+                    [
+                        ft.Text(
+                            f"Bienvenido, {self.username}",
+                            size=26,
+                            weight=ft.FontWeight.BOLD
+                        ),
+
+                        ft.Container(height=20),
+
+                        self.card([
+                            self.primary_button(
+                                "Consultar indicador",
+                                lambda e: self.page_indicator()
+                            ),
+                            self.primary_button(
+                                "Ver historial",
+                                lambda e: self.page_history()
+                            ),
+                            ft.OutlinedButton(
+                                "Cerrar sesión",
+                                width=280,
+                                on_click=lambda e: self.page_login()
+                            )
+                        ])
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                )
             )
         )
+
         self.page.update()
     # ================= CONSULTA INDICADOR =================
     def page_indicator(self):
@@ -231,21 +286,35 @@ class App:
         self.result_text = ft.Text(size=16, weight="bold")
 
         self.page.add(
-            ft.Column(
-                [
-                    ft.Text("Consulta de indicadores", size=24, weight="bold"),
-                    self.card([
-                        self.dropdown,
-                        self.date_input,
-                        self.primary_button("Consultar", self.handle_indicator),
-                        self.result_text,
-                        ft.TextButton("Volver", on_click=lambda e: self.page_main_menu())
-                    ])
-                ],
-                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                alignment=ft.MainAxisAlignment.CENTER
+            ft.Container(
+                expand=True,
+                alignment=ft.alignment.center,
+                content=ft.Column(
+                    [
+                        ft.Text(
+                            "Consulta de indicadores",
+                            size=24,
+                            weight=ft.FontWeight.BOLD
+                        ),
+
+                        ft.Container(height=20),
+
+                        self.card([
+                            self.dropdown,
+                            self.date_input,
+                            self.primary_button("Consultar", self.handle_indicator),
+                            self.result_text,
+                            ft.TextButton(
+                                "Volver",
+                                on_click=lambda e: self.page_main_menu()
+                            )
+                        ])
+                    ],
+                    horizontal_alignment=ft.CrossAxisAlignment.CENTER
+                )
             )
         )
+
     def handle_indicator(self, e):
         try:
             if not self.dropdown.value:
@@ -310,15 +379,31 @@ class App:
         ] if history else [ft.Text("No hay registros")]
 
         self.page.add(
-            ft.Column(
+        ft.Container(
+            expand=True,
+            alignment=ft.alignment.center,
+            content=ft.Column(
                 [
-                    ft.Text("Historial de consultas", size=24, weight="bold"),
-                    self.card(items, width=500),
-                    ft.TextButton("Volver", on_click=lambda e: self.page_main_menu())
+                    ft.Text(
+                        "Historial de consultas",
+                        size=24,
+                        weight=ft.FontWeight.BOLD
+                    ),
+
+                    ft.Container(height=20),
+
+                    self.card(items, width=520),
+
+                    ft.TextButton(
+                        "Volver",
+                        on_click=lambda e: self.page_main_menu()
+                    )
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER
             )
         )
+    )
+
 
 if __name__ == "__main__":
     ft.app(target=App)
